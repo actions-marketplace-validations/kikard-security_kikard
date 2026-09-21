@@ -1,10 +1,7 @@
-name: 'Kikard'
+name: 'Kikard Security'
 description: >-
-  Scanne le code d'une pull request (secrets exposés, failles d'injection, dépendances à risque,
-  packages hallucinés par l'IA -- slopsquatting) et fait échouer le check quand une faille au
-  niveau --fail-on (ou plus critique) est détectée. Ajoutez ce check comme "required status
-  check" dans la protection de branche du dépôt pour bloquer réellement la fusion des PR en
-  échec -- GitHub n'offre pas d'autre mécanisme de blocage direct depuis une Action tierce.
+  Scanne vos PR : secrets exposés, failles d'injection, dépendances à risque et packages IA
+  hallucinés (slopsquatting).
 author: 'kikard'
 branding:
   icon: 'shield'
