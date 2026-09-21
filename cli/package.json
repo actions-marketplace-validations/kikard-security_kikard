@@ -1,0 +1,47 @@
+{
+  "name": "kikard",
+  "version": "7.3.1",
+  "description": "Detects hallucinated packages (slopsquatting), exposed secrets, and language-specific injection vulnerabilities in AI-generated code. Covers npm, PyPI, crates.io, Packagist, Go modules, RubyGems, and Maven locally -- plus an optional connected advanced scan (--advanced), an AI-generated code fix applicant (--ai-fix, preview + confirmation required), a free local fix-prompt generator (--fix-prompt, no network call, ready to paste into any AI assistant), and a local registry firewall (`kikard firewall start`) that blocks hallucinated/typosquatted npm and PyPI packages before native install commands complete.",
+  "type": "module",
+  "author": {
+    "name": "Kikard",
+    "url": "https://kikard.com"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "kikard": "./bin/kikard.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "local",
+    "data",
+    "hooks"
+  ],
+  "keywords": [
+    "security",
+    "slopsquatting",
+    "supply-chain",
+    "ai-generated-code",
+    "sast",
+    "npm",
+    "pypi",
+    "supply-chain-firewall",
+    "ai-code-fix"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kikard-security/kikard.git",
+    "directory": "cli"
+  },
+  "bugs": {
+    "url": "https://github.com/kikard-security/kikard/issues"
+  },
+  "homepage": "https://github.com/kikard-security/kikard#readme"
+}

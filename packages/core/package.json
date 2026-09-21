@@ -1,0 +1,9 @@
+{
+  "name": "@kikard/core",
+  "version": "0.2.1",
+  "private": true,
+  "description": "Moteur de scan partagé de kikard -- SOURCE UNIQUE. Ne pas éditer cli/lib directement : éditez ici, puis lancez `npm run sync-core` depuis la racine.",
+  "type": "module",
+  "main": "src/staticScanners.js",
+  "license": "Apache-2.0"
+}

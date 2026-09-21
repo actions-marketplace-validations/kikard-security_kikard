@@ -1,0 +1,27 @@
+name: check-core-drift
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Resynchroniser packages/core vers cli/
+        run: node scripts/sync-core.mjs
+
+      - name: Vérifier l'absence de différence après synchronisation
+        run: |
+          if ! git diff --quiet -- cli/lib cli/data; then
+            echo "::error::cli/lib a été modifié directement au lieu de packages/core/src -- lancez 'node scripts/sync-core.mjs' et committez le résultat."
+            git diff --stat -- cli/lib cli/data
+            exit 1
+          fi
+          echo "OK -- aucune dérive détectée entre packages/core et cli/lib."

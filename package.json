@@ -1,0 +1,12 @@
+{
+  "name": "kikard",
+  "private": true,
+  "description": "Moteur de scan et CLI kikard -- détection de packages hallucinés, secrets exposés, failles d'injection dans le code généré par IA.",
+  "workspaces": [
+    "cli"
+  ],
+  "scripts": {
+    "sync-core": "node scripts/sync-core.mjs"
+  },
+  "license": "Apache-2.0"
+}

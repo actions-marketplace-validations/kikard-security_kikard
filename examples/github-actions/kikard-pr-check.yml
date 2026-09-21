@@ -1,0 +1,32 @@
+# Exemple à copier dans .github/workflows/kikard-pr-check.yml d'un dépôt utilisant kikard.
+#
+# 1. Créez un compte kikard (gratuit, 1000 scans/mois -- voir https://kikard.com/pricing pour
+#    passer à Pro si vous avez besoin de scans illimités) et générez une clé API.
+# 2. Ajoutez cette clé comme secret du dépôt : Settings > Secrets and variables > Actions >
+#    New repository secret, nommé par exemple KIKARD_API_KEY.
+# 3. Une fois ce workflow présent sur la branche par défaut, allez dans Settings > Branches >
+#    Branch protection rules et ajoutez "kikard security scan" comme "required status check" --
+#    c'est cette étape, pas l'Action elle-même, qui bloque réellement la fusion d'une PR en échec.
+name: kikard security scan
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write # nécessaire pour que l'Action commente la pull request
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: kikard scan
+        uses: kikard-security/kikard@v1 # remplacez @v1 par le tag de release publié une fois le premier tag créé
+        with:
+          api-key: ${{ secrets.KIKARD_API_KEY }}
+          fail-on: critical
+          # path: .          -- dossier à scanner, "." par défaut
+          # comment-on-pr: true -- commente automatiquement la PR avec le récapitulatif

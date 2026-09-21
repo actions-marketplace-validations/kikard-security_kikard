@@ -1,0 +1,154 @@
+name: 'Kikard'
+description: >-
+  Scanne le code d'une pull request (secrets exposés, failles d'injection, dépendances à risque,
+  packages hallucinés par l'IA -- slopsquatting) et fait échouer le check quand une faille au
+  niveau --fail-on (ou plus critique) est détectée. Ajoutez ce check comme "required status
+  check" dans la protection de branche du dépôt pour bloquer réellement la fusion des PR en
+  échec -- GitHub n'offre pas d'autre mécanisme de blocage direct depuis une Action tierce.
+author: 'kikard'
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  api-key:
+    description: >-
+      Clé API kikard (voir `kikard login`). Un compte gratuit (1000 scans/mois) suffit --
+      https://app.kikard.com.
+    required: true
+  api-url:
+    description: 'URL du serveur de compte kikard.'
+    required: false
+    default: 'https://app.kikard.com'
+  path:
+    description: 'Chemin à scanner, relatif à la racine du dépôt.'
+    required: false
+    default: '.'
+  fail-on:
+    description: 'Sévérité minimale qui fait échouer le check : critical | high | medium | low | info.'
+    required: false
+    default: 'critical'
+  comment-on-pr:
+    description: 'Publier un commentaire récapitulatif sur la pull request (true/false).'
+    required: false
+    default: 'true'
+  github-token:
+    description: >-
+      Jeton utilisé pour publier le commentaire de PR. Laissez vide pour utiliser le
+      GITHUB_TOKEN automatique du workflow (suffisant dans la grande majorité des cas).
+    required: false
+    default: ''
+
+outputs:
+  findings-count:
+    description: 'Nombre total de failles détectées.'
+    value: ${{ steps.scan.outputs.findings-count }}
+  report-path:
+    description: 'Chemin du rapport JSON généré par le scan.'
+    value: ${{ steps.scan.outputs.report-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Authentifier le CLI kikard
+      shell: bash
+      run: |
+        node "${{ github.action_path }}/cli/bin/kikard.js" login "${{ inputs.api-key }}" --api-url "${{ inputs.api-url }}"
+
+    # Le scan écrit toujours son rapport et ne fait jamais échouer cette étape elle-même
+    # (set +e) : on veut pouvoir publier le commentaire de PR même quand kikard a détecté des
+    # failles -- c'est l'étape "Vérifier le seuil fail-on" plus bas qui décide de faire
+    # échouer le check, une fois le rapport et le commentaire déjà produits.
+    - name: Lancer le scan kikard
+      id: scan
+      shell: bash
+      run: |
+        set +e
+        node "${{ github.action_path }}/cli/bin/kikard.js" scan "${{ inputs.path }}" --json --fail-on "${{ inputs.fail-on }}" > kikard-report.json
+        SCAN_EXIT=$?
+        set -e
+        echo "exit-code=$SCAN_EXIT" >> "$GITHUB_OUTPUT"
+        echo "report-path=kikard-report.json" >> "$GITHUB_OUTPUT"
+        COUNT=$(node -e "try{const r=JSON.parse(require('fs').readFileSync('kikard-report.json','utf8'));const f=Array.isArray(r.findings)?r.findings:(Array.isArray(r)?r:[]);console.log(f.length)}catch(e){console.log(0)}")
+        echo "findings-count=$COUNT" >> "$GITHUB_OUTPUT"
+
+    - name: Publier le commentaire sur la pull request
+      if: ${{ inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' }}
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github-token || github.token }}
+        script: |
+          const fs = require('fs');
+          let report = {};
+          try {
+            report = JSON.parse(fs.readFileSync('kikard-report.json', 'utf8'));
+          } catch (e) {
+            report = {};
+          }
+          // [20/09/2026] Réserve du 27/08 levée : la forme réelle de buildJsonReport()
+          // (lib/report.js) a été vérifiée -- c'est bien {findings:[...]}, chaque finding
+          // portant {severity, category, ruleId, location, title, detail, fix} (PAS de champs
+          // `file`/`line`/`rule`/`type` séparés -- unifiés dans `location`, une chaîne du type
+          // "chemin:ligne" ou "écosystème · paquet"). Le tableau nu en secours est gardé par
+          // prudence, mais les accès ci-dessous ont été corrigés pour matcher le vrai format
+          // (l'emplacement ne s'affichait jamais avant ce correctif).
+          const findings = Array.isArray(report.findings)
+            ? report.findings
+            : (Array.isArray(report) ? report : []);
+
+          // "high" ajouté [20/09/2026] -- manquait alors que injections.js/*-patterns.js en
+          // produisent (XSS, SQLi...) ; sans lui ces failles étaient silencieusement absentes
+          // du récapitulatif par sévérité du commentaire de PR (même bug que SEVERITY_RANK
+          // dans cli/bin/kikard.js, corrigé dans le même passage).
+          const bySeverity = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+          for (const f of findings) {
+            const sev = (f && f.severity) || 'info';
+            bySeverity[sev] = (bySeverity[sev] || 0) + 1;
+          }
+          const total = findings.length;
+          const marker = '<!-- kikard-scan-comment -->';
+          let body = `${marker}\n### 🛡️ Rapport kikard\n\n`;
+          if (total === 0) {
+            body += 'Aucune faille détectée.\n';
+          } else {
+            body += `**${total} faille(s) détectée(s)** — 🔴 critical : ${bySeverity.critical} · 🟠 high : ${bySeverity.high} · 🟡 medium : ${bySeverity.medium} · 🔵 low : ${bySeverity.low} · ⚪ info : ${bySeverity.info}\n\n`;
+            const top = findings.slice(0, 15);
+            for (const f of top) {
+              const label = (f && (f.title || f.ruleId || f.category)) || 'Faille';
+              const loc = f && f.location ? ` (\`${f.location}\`)` : '';
+              body += `- **${((f && f.severity) || 'info').toUpperCase()}** — ${label}${loc}\n`;
+            }
+            if (findings.length > top.length) {
+              body += `\n_...et ${findings.length - top.length} de plus. Voir le rapport JSON complet (\`kikard-report.json\` ci-dessus, ou artefact du job)._\n`;
+            }
+          }
+          body += '\n<sub>Pour bloquer réellement la fusion des PR en échec, configurez ce check comme "required status check" dans la protection de branche du dépôt.</sub>\n';
+
+          const { owner, repo } = context.repo;
+          const issue_number = context.issue.number;
+          if (!issue_number) return;
+
+          const comments = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 100 });
+          const existing = comments.data.find((c) => c.body && c.body.includes(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+          } else {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+          }
+
+    - name: Vérifier le seuil fail-on
+      shell: bash
+      run: |
+        EXIT_CODE="${{ steps.scan.outputs.exit-code }}"
+        if [ "$EXIT_CODE" = "1" ]; then
+          echo "::error::kikard a détecté des failles de sévérité '${{ inputs.fail-on }}' ou plus critique -- voir le rapport ci-dessus (et le commentaire sur la pull request, le cas échéant)."
+          exit 1
+        elif [ "$EXIT_CODE" != "0" ]; then
+          echo "::error::kikard a rencontré une erreur inattendue (code de sortie $EXIT_CODE) -- voir les logs de l'étape 'Lancer le scan kikard'."
+          exit 1
+        fi

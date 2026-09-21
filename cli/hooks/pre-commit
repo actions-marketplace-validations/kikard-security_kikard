@@ -1,0 +1,16 @@
+#!/bin/sh
+# kikard pre-commit hook
+# Installation : copiez ce fichier dans .git/hooks/pre-commit et rendez-le exécutable
+#   cp hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+npx --yes kikard scan . --fail-on critical
+STATUS=$?
+
+if [ $STATUS -ne 0 ]; then
+  echo ""
+  echo "kikard a bloqué ce commit : au moins une dépendance suspecte détectée."
+  echo "Corrigez le package en question, ou ajoutez-le à .kikardignore s'il s'agit d'un faux positif connu."
+  exit 1
+fi
+
+exit 0

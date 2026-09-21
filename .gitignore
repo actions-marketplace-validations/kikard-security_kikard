@@ -1,0 +1,24 @@
+# Dépendances
+node_modules/
+
+# Fichiers d'environnement et secrets -- ne JAMAIS committer
+.env
+.env.local
+.env.*.local
+
+# Rapports générés lors de tests locaux
+*.kikard-report.html
+kikard-report.html
+
+# Sauvegardes créées par --fix
+*.kikard.bak
+
+# Système / éditeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Builds
+dist/
+build/

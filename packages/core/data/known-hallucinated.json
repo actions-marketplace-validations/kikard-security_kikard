@@ -1,0 +1,22 @@
+{
+  "_comment": "Noms de packages documentés publiquement comme hallucinations IA récurrentes.",
+  "npm": [
+    "react-codeshift",
+    "express-async-errors-v2",
+    "axios-retry-advanced",
+    "next-auth-helpers",
+    "tailwind-merge-extra"
+  ],
+  "pypi": [
+    "huggingface-cli",
+    "langchain-helpers",
+    "openai-utils",
+    "python-dotenv-autoload",
+    "torch-helpers"
+  ],
+  "cratesio": [],
+  "packagist": [],
+  "go": [],
+  "rubygems": [],
+  "maven": []
+}
