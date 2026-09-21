@@ -1,4 +1,4 @@
-name: 'Kikard'
+name: 'Kikard Security'
 description: >-
   Scanne le code d'une pull request (secrets exposés, failles d'injection, dépendances à risque,
   packages hallucinés par l'IA -- slopsquatting) et fait échouer le check quand une faille au
