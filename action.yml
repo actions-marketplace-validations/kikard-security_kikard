@@ -1,7 +1,6 @@
 name: 'Kikard Security'
 description: >-
-  Scanne vos PR : secrets exposés, failles d'injection, dépendances à risque et packages IA
-  hallucinés (slopsquatting).
+  Scanne vos PR -- slopsquatting (packages IA hallucinés), secrets exposés, failles d'injections, dépendances à risque.
 author: 'kikard'
 branding:
   icon: 'shield'
