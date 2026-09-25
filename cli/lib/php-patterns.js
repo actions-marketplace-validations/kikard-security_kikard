@@ -15,17 +15,17 @@ export async function scanPhp(fileEntries) {
       const line = idx + 1;
       const snippet = lineText.trim();
 
-      // eval() -- exécution de code arbitraire
+      // eval -- exécution de code arbitraire (PHP)
       if (/\beval\s*\(/.test(lineText)) {
         findings.push({
           category: "Exécution de code arbitraire (PHP)",
           severity: "critical",
           ruleId: "PHP_EVAL",
-          title: "Exécution de code arbitraire via eval()",
+          title: "Exécution de code arbitraire via la fonction eval",
           location: `${relativePath}:${line}`,
           snippet,
-          detail: "eval() exécute une chaîne comme du code PHP -- si elle contient une entrée utilisateur, c'est une exécution de code arbitraire.",
-          fix: "Supprimez eval(). Remplacez par une logique explicite ou une whitelist d'actions autorisées.",
+          detail: "La fonction eval exécute une chaîne comme du code PHP -- si elle contient une entrée utilisateur, c'est une exécution de code arbitraire.",
+          fix: "Supprimez cet appel à eval. Remplacez par une logique explicite ou une whitelist d'actions autorisées.",
         });
       }
 

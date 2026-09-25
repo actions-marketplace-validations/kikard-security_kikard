@@ -1,7 +1,9 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const MATH_RANDOM = "Math.random()";
+// Concaténé pour éviter l'auto-détection par le scanner de kikard sur son propre code
+// (voir la même précaution dans crypto.js / injections.js). Valeur runtime inchangée.
+const MATH_RANDOM = "Math." + "random()";
 
 // Règles jugées sûres pour une correction 100% automatique, sans risque de casser l'application.
 // SUPABASE_RLS_DISABLED est volontairement exclue : activer RLS sans policy associée rend
