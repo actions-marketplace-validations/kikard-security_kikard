@@ -37,5 +37,5 @@ jobs:
       - name: Vérifier le contenu avant publication
         run: npm publish --dry-run
 
-      - name: Publier sur npm
-        run: npm publish
+      - name: Publier sur npm (staged -- approbation manuelle 2FA requise ensuite)
+        run: npm stage publish
