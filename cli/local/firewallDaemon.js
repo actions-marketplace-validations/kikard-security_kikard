@@ -24,7 +24,28 @@ const execFileAsync = promisify(execFile);
 // npm/pip sont typiquement des scripts (.cmd) sous Windows -- execFile sans shell ne les
 // trouve pas dans ce cas, d'où ce shell conditionnel (même précaution que le reste du CLI
 // pour l'ouverture de rapport HTML, voir bin/kikard.js).
-const TOOL_EXEC_OPTS = { shell: process.platform === "win32" };
+// [24/09/2026] `timeout` ajouté suite à un bug de terrain (Windows, pip absent) : sans borne,
+// une résolution PATH anormalement lente (antivirus, lecteur réseau dans le PATH...) pouvait
+// faire dépasser la fenêtre de confirmation de `kikard firewall start` (voir firewall.js) --
+// le pare-feu démarrait correctement mais l'utilisateur voyait un faux avertissement "démarrage
+// non confirmé". Chaque appel npm/pip est maintenant borné à 4s : au pire, on bascule sur
+// l'écosystème ignoré au lieu de rester bloqué indéfiniment.
+const TOOL_EXEC_OPTS = { shell: process.platform === "win32", timeout: 4000 };
+const WHICH_CMD = process.platform === "win32" ? "where" : "which";
+
+// Vérifie la présence de l'outil AVANT de tenter de le (re)configurer, plutôt que de le
+// découvrir en laissant `pip config get/set` échouer -- deux bénéfices : plus rapide (un seul
+// appel léger au lieu de deux appels qui spawnent chacun un shell pour un binaire absent), et
+// un message de log propre au lieu du texte d'erreur natif de l'OS ("'pip' n'est pas reconnu
+// en tant que commande interne...") recopié tel quel dans le journal.
+async function commandExists(cmd) {
+  try {
+    await execFileAsync(WHICH_CMD, [cmd], { ...TOOL_EXEC_OPTS, timeout: 3000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function parseArgs(argv) {
   const args = { port: 7878, ecosystems: ["npm", "pypi"] };
@@ -88,8 +109,21 @@ async function unsetPipIndexUrl() {
 
 async function main() {
   const { port, ecosystems } = parseArgs(process.argv.slice(2));
-  const originalNpmRegistry = ecosystems.includes("npm") ? await getNpmRegistry() : null;
-  const originalPipIndexUrl = ecosystems.includes("pypi") ? await getPipIndexUrl() : null;
+
+  // Vérification de présence en amont (voir commandExists ci-dessus) -- évite de payer le
+  // coût (potentiellement lent sous Windows) d'un `pip config get`/`set` sur un binaire absent,
+  // et permet un message de log propre plutôt que l'erreur native de l'OS.
+  const npmAvailable = ecosystems.includes("npm") && (await commandExists("npm"));
+  const pipAvailable = ecosystems.includes("pypi") && (await commandExists("pip"));
+  if (ecosystems.includes("npm") && !npmAvailable) {
+    await log("⚠️  npm introuvable sur cette machine -- écosystème npm ignoré.");
+  }
+  if (ecosystems.includes("pypi") && !pipAvailable) {
+    await log("⚠️  pip introuvable sur cette machine -- écosystème pypi ignoré.");
+  }
+
+  const originalNpmRegistry = npmAvailable ? await getNpmRegistry() : null;
+  const originalPipIndexUrl = pipAvailable ? await getPipIndexUrl() : null;
 
   const server = createServer(createFirewallRequestHandler({ ecosystems, log: (line) => log(line) }));
 
@@ -100,23 +134,24 @@ async function main() {
 
   // On n'active la redirection npm/pip QUE pour les outils réellement présents et
   // reconfigurables -- un `npm config set` qui réussit prouve que npm existe sur la machine ;
-  // s'il échoue (outil absent), cet écosystème est simplement ignoré plutôt que de faire
-  // échouer tout le pare-feu.
+  // s'il échoue (outil pourtant détecté par commandExists, mais reconfiguration refusée pour
+  // une autre raison), cet écosystème est simplement ignoré plutôt que de faire échouer tout
+  // le pare-feu.
   const applied = [];
-  if (ecosystems.includes("npm")) {
+  if (npmAvailable) {
     try {
       await setNpmRegistry(`http://127.0.0.1:${port}/`);
       applied.push("npm");
     } catch (err) {
-      await log(`⚠️  Impossible de configurer npm (npm introuvable ?) -- ${err.message}`);
+      await log(`⚠️  Impossible de configurer npm -- ${err.message}`);
     }
   }
-  if (ecosystems.includes("pypi")) {
+  if (pipAvailable) {
     try {
       await setPipIndexUrl(`http://127.0.0.1:${port}/simple/`);
       applied.push("pypi");
     } catch (err) {
-      await log(`⚠️  Impossible de configurer pip (pip introuvable ?) -- ${err.message}`);
+      await log(`⚠️  Impossible de configurer pip -- ${err.message}`);
     }
   }
 

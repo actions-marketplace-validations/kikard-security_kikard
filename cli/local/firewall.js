@@ -73,15 +73,22 @@ export async function startFirewall({ port, ecosystems, foreground }) {
   // Le daemon écrit son état (firewallState.js) une fois le serveur démarré et la config
   // npm/pip appliquée -- on patiente un court instant pour donner un retour utile
   // immédiatement plutôt que de laisser l'utilisateur deviner si ça a fonctionné.
+  // [24/09/2026] Fenêtre élargie de 3s à 8s (20x150ms -> 40x200ms) suite à un bug de terrain :
+  // sur certaines machines Windows, la (re)configuration npm/pip côté daemon (firewallDaemon.js)
+  // pouvait à elle seule dépasser 3s (résolution PATH lente pour un outil absent, ex. pip non
+  // installé) -- le pare-feu démarrait correctement mais ce délai trop court affichait quand
+  // même l'avertissement "démarrage non confirmé" ci-dessous. Le daemon borne maintenant chaque
+  // appel npm/pip à 4s (voir TOOL_EXEC_OPTS dans firewallDaemon.js), donc 8s ici couvre
+  // confortablement le pire cas (vérif présence + éventuel appel de config, par écosystème).
   let state = null;
-  for (let i = 0; i < 20; i++) {
-    await new Promise((r) => setTimeout(r, 150));
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 200));
     state = await readFirewallState();
     if (state && state.pid === child.pid) break;
   }
 
   if (!state || state.pid !== child.pid) {
-    console.log(`⚠️  Le pare-feu a été lancé (PID ${child.pid}) mais son démarrage n'a pas pu être confirmé -- vérifiez ${FIREWALL_LOG_PATH}.`);
+    console.log(`⚠️  Le pare-feu a été lancé (PID ${child.pid}) mais son démarrage n'a pas pu être confirmé après 8s -- il continue probablement de démarrer en arrière-plan. Vérifiez dans quelques instants avec 'kikard firewall status', ou consultez ${FIREWALL_LOG_PATH}.`);
     return;
   }
 
