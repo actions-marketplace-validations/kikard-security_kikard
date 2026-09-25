@@ -1,4 +1,4 @@
-name: Kikard
+name: Kikard Security
 
 on:
   push:
@@ -21,14 +21,14 @@ jobs:
           node-version: 20
 
       - name: Connexion kikard (compte CI dédié)
-        run: npx --yes kikard login "${{ secrets.KIKARD_CI_API_KEY }}"
+        run: npx --yes kikard@latest login "${{ secrets.KIKARD_CI_API_KEY }}"
 
       # 1. Génération des rapports d'audit (HTML interactif & JSON)
       - name: Générer les rapports d'audit (HTML & JSON)
         if: always()
         run: |
-          npx --yes kikard scan . --html kikard-report.html
-          npx --yes kikard scan . --json > kikard-report.json
+          npx --yes kikard@latest scan . --html kikard-report.html
+          npx --yes kikard@latest scan . --json > kikard-report.json
 
       # 2. Poster le résumé en commentaire sur la Pull Request
       - name: Poster le résumé kikard sur la PR
@@ -111,7 +111,7 @@ jobs:
 
       # 3. Exécution du scan pour validation CI (échec si faille critique)
       - name: Exécuter le contrôle de sécurité kikard
-        run: npx --yes kikard scan . --fail-on critical
+        run: npx --yes kikard@latest scan . --fail-on critical
 
       # 4. Publication des rapports d'audit comme artefacts GitHub
       - name: Publier les rapports d'audit

@@ -1,0 +1,41 @@
+name: Publish CLI to npm (trusted publisher / OIDC)
+
+# Se déclenche sur un tag de version (ex. v7.3.2, poussé par la Phase E du
+# script kikard-push-github-npm-marketplace.ps1), ou manuellement depuis
+# l'onglet Actions de GitHub si besoin de republier sans retag.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # obligatoire : c'est ce jeton qui permet à npm de vérifier
+                     # ce workflow via OIDC, sans aucun token npm stocké en secret
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+
+      # Le Trusted Publishing OIDC de npm exige npm >= 11.5.1 -- setup-node
+      # embarque une version plus ancienne selon la release Node, donc on la
+      # met à jour explicitement avant de publier.
+      - name: Mettre à jour npm (requis pour OIDC >= 11.5.1)
+        run: npm install -g npm@latest
+
+      - name: Vérifier le contenu avant publication
+        run: npm publish --dry-run
+
+      - name: Publier sur npm
+        run: npm publish
