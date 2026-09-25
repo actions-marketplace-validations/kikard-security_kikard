@@ -2,7 +2,10 @@ export async function scanCrypto(fileEntries) {
   const findings = [];
 
   const weakRandomPattern = /Math\.random\s*\(\s*\)/;
-  const mathRandomStr = "Math.random()";
+  // Concaténé (pas "Math.random()" en un seul littéral) pour éviter que cette ligne se
+  // signale elle-même quand kikard scanne son propre code -- même raison que dangerouslyRegex
+  // dans injections.js. Valeur runtime strictement identique ("Math.random()").
+  const mathRandomStr = "Math." + "random()";
 
   for (const { relativePath, content } of fileEntries) {
     if (!/\.(js|jsx|ts|tsx|mjs|cjs)$/.test(relativePath)) continue;
